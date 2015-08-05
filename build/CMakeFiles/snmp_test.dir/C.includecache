@@ -1,0 +1,28 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/root/projects/snmp_test/./snmp/snmp.h
+net-snmp/net-snmp-config.h
+-
+net-snmp/net-snmp-includes.h
+-
+
+/root/projects/snmp_test/main.c
+stdio.h
+-
+string.h
+-
+unistd.h
+-
+stdlib.h
+-
+pthread.h
+-
+./snmp/snmp.h
+/root/projects/snmp_test/./snmp/snmp.h
+

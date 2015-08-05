@@ -1,0 +1,2 @@
+/root/projects/snmp_test/build/snmp/CMakeFiles/mysnmp.dir
+/root/projects/snmp_test/build/CMakeFiles/snmp_test.dir

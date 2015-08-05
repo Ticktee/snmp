@@ -1,0 +1,2 @@
+/usr/bin/ar cr libmysnmp.a  CMakeFiles/mysnmp.dir/snmp.c.o CMakeFiles/mysnmp.dir/readconf.c.o
+/usr/bin/ranlib libmysnmp.a
