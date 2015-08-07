@@ -3,7 +3,7 @@
 max_time_gap=3
 
 #hosts information format:host**=hostip  community
-hosts_num=3
+hosts_num=4
 host2=192.168.3.1   test
 host1=192.168.3.125 public
 host3=localhost public

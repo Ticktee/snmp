@@ -9,7 +9,8 @@
 #define HOST_NAME_LEN 16
 #define HOST_COMMUNITY_LEN 16
 
-
+#define CONFIG_FILE_PATH   "./netsnmpconf.txt"
+#define MODULE_NAME        "appname"
 
 typedef struct snmp_msg
 {
@@ -20,16 +21,29 @@ typedef struct snmp_msg
   int  opttype;//1-get 2-getwalk
 }netsnmp_msg;
 
-typedef struct snmp_data
+typedef struct snmp_oid
 {
-  char *host;
-  netsnmp_pdu *response;
-}netsnmp_data;
+  char *name;
+  oid  node_oid[MAX_OID_LEN];
+  size_t oidlen;
+  struct snmp_oid *next_oid;
+}netsnmp_oid;
+
+typedef struct snmp_host
+{
+  char *name;
+  char *community;
+  netsnmp_oid hoid;
+  int tmout;  //timer expire seconds 
+  struct snmp_session *ss;//session
+  netsnmp_variable_list *response;
+} netsnmp_host;
 
 
 void snmp_get_example();
-void * netsnmp_thread_s(void* arg);//synchronize
-void * netsnmp_thread_as(void* arg);//asynchronize
+void snmp_init(void *args,int type);
+void * snmp_thread_s(void* arg);//synchronize
+void * snmp_thread_as(void* arg);//asynchronize
 
 
 #endif

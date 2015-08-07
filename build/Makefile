@@ -189,30 +189,6 @@ main.c.s:
 	$(MAKE) -f CMakeFiles/snmp_test.dir/build.make CMakeFiles/snmp_test.dir/main.c.s
 .PHONY : main.c.s
 
-snmp.o: snmp.c.o
-.PHONY : snmp.o
-
-# target to build an object file
-snmp.c.o:
-	$(MAKE) -f CMakeFiles/snmp_test.dir/build.make CMakeFiles/snmp_test.dir/snmp.c.o
-.PHONY : snmp.c.o
-
-snmp.i: snmp.c.i
-.PHONY : snmp.i
-
-# target to preprocess a source file
-snmp.c.i:
-	$(MAKE) -f CMakeFiles/snmp_test.dir/build.make CMakeFiles/snmp_test.dir/snmp.c.i
-.PHONY : snmp.c.i
-
-snmp.s: snmp.c.s
-.PHONY : snmp.s
-
-# target to generate assembly for a file
-snmp.c.s:
-	$(MAKE) -f CMakeFiles/snmp_test.dir/build.make CMakeFiles/snmp_test.dir/snmp.c.s
-.PHONY : snmp.c.s
-
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -230,9 +206,6 @@ help:
 	@echo "... main.o"
 	@echo "... main.i"
 	@echo "... main.s"
-	@echo "... snmp.o"
-	@echo "... snmp.i"
-	@echo "... snmp.s"
 .PHONY : help
 
 

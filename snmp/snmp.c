@@ -5,66 +5,46 @@
 #include <sys/types.h>
 #include <stdlib.h>
 #include <time.h>
+#include <sys/timerfd.h>
 #include <signal.h>
 
 
 #define MAX_BUF_SIZE  200
 
 
-
-typedef struct snmp_node
-{
-  char *name;
-  oid  node_oid[MAX_OID_LEN];
-  size_t oidlen;
-}netsnmp_node;
-
-typedef struct snmp_host
-{
-  char *name;
-  char *community;
-  netsnmp_node hoid;
-  struct snmp_session *ss;
-} netsnmp_host;
-
-
-static netsnmp_host *Hosts;
+static netsnmp_host *Hosts=NULL;
 static int  HostsNum=0;
 static int  MaxTimeGap=0;
-static char * Path="./netsnmpconf.txt";
-static char * SoftName="appname";
 static oid    Objid_mib[] = { 1, 3, 6, 1, 2, 1 };//mib-2 tree
 
 
-static void set_default_oid(oid *theoid);
-static void init_hosts(void *args,int type);
-static void free_hosts(netsnmp_host *host);
+static  void snmp_free_hosts();
+static void set_oid_default(netsnmp_oid *node);
 static int read_config_file(char *pathname);
-static int  send_get_pdu(netsnmp_host* host,netsnmp_node *node); //for asynchronize thread
-static void print_response(netsnmp_pdu *response);
-static int  handle_response(netsnmp_host* host, netsnmp_pdu** response);
-static netsnmp_pdu *snmp_get(netsnmp_host *host,netsnmp_node *node);
-static int    snmp_walk(netsnmp_host *host,netsnmp_node *node);
+static int  send_get_pdu(netsnmp_host* host,netsnmp_oid *node); //for asynchronize thread
+static void print_result(netsnmp_variable_list *list);
+static int  handle_result(netsnmp_host* host, netsnmp_variable_list** list);
+static netsnmp_variable_list *snmp_get(netsnmp_host *host,netsnmp_oid *node);
+static netsnmp_variable_list *snmp_walk(netsnmp_host *host,netsnmp_oid *node);
 static int asynch_response_cb(int operation, struct snmp_session *sp, int reqid,
                            netsnmp_pdu *pdu, void *magic);
 
 extern int GetProfileString(char *profile, char *AppName, char *KeyName, char *KeyVal);
 
-
-static void set_oid_default(netsnmp_node *node)
+static void set_oid_default(netsnmp_oid *node)
 {
-  oid *theoid=node->node_oid;
   if(node)
   {
-    *theoid++=1;
-    *theoid++=3;
-    *theoid++=6;
-    *theoid++=1;
-    *theoid++=2;
-    *theoid=1;
+    node->node_oid[0]=1;//theoid[0] = ;
+    node->node_oid[1]=3;//theoid[1] = ;
+    node->node_oid[2]=6;
+    node->node_oid[3]=1;
+    node->node_oid[4]=2;
+    node->node_oid[5]=1;
     node->name=malloc(strlen("mib-2"));
     strcpy(node->name,"mib-2");
     node->oidlen=6;
+    node->next_oid=NULL;
   }
   else
     snmp_perror("set_default_oid err");
@@ -211,13 +191,12 @@ void snmp_get_example()
    SOCK_CLEANUP;
 } 
   
-void print_response(netsnmp_pdu *response)
+void print_result(netsnmp_variable_list *list)
 {
-  netsnmp_variable_list *vars;
-  if(response != NULL)
-    for (vars = response->variables; vars; vars = vars->next_variable) 
+  if(list != NULL)
+    for (; list; list = list->next_variable) 
     {
-      print_variable(vars->name, vars->name_length, vars);
+      print_variable(list->name, list->name_length, list);
     }
 }
 
@@ -233,7 +212,7 @@ int read_config_file(char *pathname)
   if(pathname==NULL)return -1;
 
 //get hosts_num from configure file 
-  if(GetProfileString(pathname,SoftName,"hosts_num",name))
+  if(GetProfileString(pathname,MODULE_NAME,"hosts_num",name))
   {
     snmp_perror("read conf error\n");
     return -1;
@@ -250,7 +229,7 @@ int read_config_file(char *pathname)
     memset(Hosts,0,sizeof(netsnmp_host)*HostsNum);
   }
 //get MaxTimeGap from configure file 
-  if(GetProfileString(pathname,SoftName,"max_time_gap",name))
+  if(GetProfileString(pathname,MODULE_NAME,"max_time_gap",name))
   {
     snmp_perror("read conf error\n");
     return -1;
@@ -264,7 +243,7 @@ int read_config_file(char *pathname)
   for(i=0; i<HostsNum;i++)
     {
       sprintf(name+4,"%d",i+1);
-      if(GetProfileString(pathname,SoftName,name,buf))
+      if(GetProfileString(pathname,MODULE_NAME,name,buf))
       {
 	printf("read host%d addr from conf error\n",i+1);
 	HostsNum=i;
@@ -280,12 +259,12 @@ int read_config_file(char *pathname)
 /*type: 0-synchronize thread
  * 	1-asynchronize thread
  */
-void init_hosts(void *args,int type)
+void snmp_init(void *args,int type)
 {
 
    netsnmp_host *hs;
    int i=0;
-   read_config_file(Path);
+   read_config_file(CONFIG_FILE_PATH);
    for(hs=Hosts;i<HostsNum;i++)
    {
      struct snmp_session sess;
@@ -296,7 +275,7 @@ void init_hosts(void *args,int type)
      sess.community_len = strlen(sess.community);
      if(type)
      {
-      sess.callback = asynch_response_cb;            /* default callback */
+      sess.callback = asynch_response_cb;      /* default callback */
       sess.callback_magic = &hs[i];
      }
      if (!(hs[i].ss = snmp_open(&sess))) {
@@ -310,13 +289,17 @@ void init_hosts(void *args,int type)
        hs[i].ss->retries=3;
      }
      set_oid_default(&(hs[i].hoid));
+     hs[i].response=NULL;
    }  
    //for args
+   if(type)init_snmp("asynchronize_thread");//init net-snmp library
+   else   init_snmp("synchronize_thread");
+   
 }
 
 /* node:  NULL --get oid in host
  * 	  !NULL--get host' mib data by oid in node */
-int send_get_pdu(netsnmp_host* host,netsnmp_node *node)//for asynchronize thread
+int send_get_pdu(netsnmp_host* host,netsnmp_oid *node)//for asynchronize thread
 {
      netsnmp_pdu *req;
      int flag;
@@ -339,329 +322,217 @@ int send_get_pdu(netsnmp_host* host,netsnmp_node *node)//for asynchronize thread
       }
       return flag;
 }
-int  handle_response(netsnmp_host *host,netsnmp_pdu **response)
+int  handle_result(netsnmp_host *host,netsnmp_variable_list **list)
 {
-  if(*response)
+  if(*list)
   {
-    print_response(*response);
-    snmp_free_pdu(*response);
-    *response=NULL;
+    print_result(*list);
+    snmp_free_varbind(*list);
+    *list=NULL;
   }
   else
   {
-    snmp_perror("handle_response:no response\n");
+    snmp_perror("handle_result:no response\n");
     return -1;
   }
   return 0;
 }
 
 
-netsnmp_pdu *snmp_get(netsnmp_host *host,netsnmp_node *node)//for synchronize thread
+netsnmp_variable_list *snmp_get(netsnmp_host *host,netsnmp_oid *node)//for synchronize thread
 {
-     struct snmp_pdu *req, *resp;
+     struct snmp_pdu *req;
      int status;
-     req = snmp_pdu_create(SNMP_MSG_GET);
+     netsnmp_variable_list *retlist;
+     netsnmp_oid *poid;
      //read_objid(".1.3.6.1.2.1.1.1.0", hostoid, &oidlen);
     // snmp_add_null_var(req, hostoid, oidlen);
-     
+     if(host->ss==NULL)return NULL;
      if(node==NULL)
      {
        if(host==NULL)return 0;
-       snmp_add_null_var(req, host->hoid.node_oid,host->hoid.oidlen);
-     }else
+       poid=&(host->hoid);
+     }
+     else
      {
-       if(node->oidlen>0)
-	  snmp_add_null_var(req, node->node_oid,node->oidlen);
-       else if(node->name)
+       poid=node;
+       for(;node;node=node->next_oid)      
+       if(node->name&& node->oidlen<=0)
        {
 	 node->oidlen=MAX_OID_LEN;//to use snmp_parse_oid() function,need to point out oid size
 	 if (snmp_parse_oid(node->name, node->node_oid, &node->oidlen)== NULL) {
 	  snmp_perror(node->name);
+	  snmp_perror("\n=========snmp_parse_oid error--------\n");
 	  exit(1);
 	  }
-	 snmp_add_null_var(req, node->node_oid,node->oidlen);
-       }
-       else 
-       {
-	 snmp_perror("snmp_get node have no data\n");
-       }
+       }     
      }
-     if(host->ss==NULL)return NULL;
-     status = snmp_synch_response(host->ss, req, &resp);
-     if (status == STAT_SUCCESS && resp->errstat == SNMP_ERR_NOERROR)return resp;//SUCCESS
+     req = snmp_pdu_create(SNMP_MSG_GET);
+     for(;poid!=NULL;poid=poid->next_oid)//add oid to req
+       {
+	  snmp_pdu_add_variable(req, poid->node_oid,poid->oidlen, ASN_NULL, NULL, 0);
+       }
+     
+     //status = snmp_synch_response(host->ss, req, &resp);
+     status = netsnmp_query_get(req->variables,host->ss);
+     if (status == STAT_SUCCESS)//SUCCESS
+     {
+       retlist=req->variables;
+       req->variables=NULL;
+       snmp_free_pdu(req);
+     }
      else 
      {
-       snmp_free_pdu(resp);//FAIL
-       return NULL;
+       snmp_free_pdu(req);//FAIL
+       retlist=NULL;
      }
+     return retlist;
 }
 
-/*return val:0-exit success
- * 	     1-exit oid or session error
- * 	     2-packet error
- */
-int    snmp_walk(netsnmp_host *host,netsnmp_node *node)
+netsnmp_variable_list *snmp_walk(netsnmp_host *host,netsnmp_oid *node)//for synchronize thread
 {
-    netsnmp_pdu    *pdu, *response;
-    netsnmp_variable_list *vars;
-  //  oid             objid_mib[] = { 1, 3, 6, 1, 2, 1 };
-    //int             numprinted = 0;
-
-	netsnmp_node    name;
-	oid             end_oid[MAX_OID_LEN];
-	size_t          end_len = 0;
-	int             count;
-	int             running;
-	int             status = STAT_ERROR;
-	int 		check=!0;
-	int             exitval = 0;
-	/*
-	* get the initial object and subtree
-	*/
-	if(node->oidlen>0){//use node oid first
-	  end_len=node->oidlen;
-	  memmove(end_oid,node->node_oid, sizeof(node->node_oid));
-	}
-	else if (node->name){
-	        end_len = MAX_OID_LEN;
-		if (snmp_parse_oid(node->name, end_oid, &end_len) == NULL) {
-			snmp_perror(host->name);
-			exit(1);
-		}
-	}	  
-	else if (host->hoid.oidlen>0) {//node is empty,then use host oid info
-		/*
-		* specified oid in the struct snmp_host
-		*/
-		end_len = host->hoid.oidlen;
-		for( count=0;count<end_len;count++)end_oid[count]=host->hoid.node_oid[count];
-	}
-	else if(host->hoid.name){
-	        end_len = MAX_OID_LEN;
-		if (snmp_parse_oid(host->hoid.name, end_oid, &end_len) == NULL) {
-			snmp_perror(host->hoid.name);
-			exit(1);
-		}
-	}
-	else {
-		/*
-		* use default value
-		*/
-		memmove(end_oid, Objid_mib, sizeof(Objid_mib));
-		end_len = sizeof(Objid_mib) / sizeof(oid);
-	}
-
-	SOCK_STARTUP;//linux :null,win32 :winsock_startup()
-
-	/*
-	* open an SNMP session
-	*/
-	if (host->ss == NULL) {
-		/*
-		* diagnose snmp_open errors with the input netsnmp_session pointer
-		*/
-		snmp_sess_perror("snmpwalk:host seesion not init", NULL);
-		SOCK_CLEANUP;
-		exit(1);
-	}
-	/*
-	* get first object to start walk
-	*/
-	memmove(name.node_oid, end_oid, end_len * sizeof(oid));
-	name.oidlen = end_len;
-	response=snmp_get(host,&name);
-	handle_response(host,&response);
-	running = 1;
-	
-	while (running) {
-		/*
-		* create PDU for GETNEXT request and add object name to request
-		*/
-		pdu = snmp_pdu_create(SNMP_MSG_GETNEXT);
-		snmp_add_null_var(pdu, name.node_oid, name.oidlen);
-		/*
-		* do the request
-		*/
-		status = snmp_synch_response(host->ss, pdu, &response); 
-		if (status == STAT_SUCCESS) {
-			if (response->errstat == SNMP_ERR_NOERROR) {
-				/*
-				* check resulting variables
-				*/
-				//
-				for (vars = response->variables; vars;
-					vars = vars->next_variable) {
-				       //if(response)printf("testi===============\n");
-					if (snmp_oid_compare(end_oid, end_len,
-						vars->name, end_len) < 0) {
-						/*
-						* not part of this subtree
-						*/						
-						running = 0;
-						continue;
-					}
-					//if(response)printf("testi===============\n");
-					//print_variable(vars->name, vars->name_length, vars);
-					if ((vars->type != SNMP_ENDOFMIBVIEW) &&
-						(vars->type != SNMP_NOSUCHOBJECT) &&
-						(vars->type != SNMP_NOSUCHINSTANCE)) {
-						/*
-						* not an exception value
-						*/
-						if (check
-							&& snmp_oid_compare(name.node_oid, name.oidlen,
-							vars->name,
-							vars->name_length) >= 0) {
-							fprintf(stderr, "Error: OID not increasing: ");
-							fprint_objid(stderr, name.node_oid, name.oidlen);
-							fprintf(stderr, " >= ");
-							fprint_objid(stderr, vars->name,
-								vars->name_length);
-							fprintf(stderr, "\n");
-							running = 0;
-							exitval = 1;
-						}
-						//if(response)printf("testing+0===============\n");
-						memmove((char *)name.node_oid, (char *)vars->name,
-							vars->name_length * sizeof(oid));
-						name.oidlen = vars->name_length;
-					}
-					else
-						/*
-						* an exception value, so stop
-						*/
-						running = 0;
-				}
-				//printf("testing+1==for parse=============\n");
-				if(running)handle_response(host,&response);
-			}
-			else {
-				/*
-				* error in response, print it
-				*/
-				running = 0;
-				if (response->errstat == SNMP_ERR_NOSUCHNAME) {
-					printf("End of MIB\n");
-				}
-				else {
-					fprintf(stderr, "Error in packet.\nReason: %s\n",
-						snmp_errstring(response->errstat));
-					if (response->errindex != 0) {
-						fprintf(stderr, "Failed object: ");
-						for (count = 1, vars = response->variables;
-							vars && count != response->errindex;
-							vars = vars->next_variable, count++)
-							/*EMPTY*/;
-						if (vars)
-							fprint_objid(stderr, vars->name,
-							vars->name_length);
-						fprintf(stderr, "\n");
-					}
-					exitval = 2;
-				}
-			}
-		}
-		else if (status == STAT_TIMEOUT) {
-			fprintf(stderr, "Timeout: No Response from %s\n",
-				host->ss->peername);
-			running = 0;
-			exitval = 1;
-		}
-		else {                /* status == STAT_ERROR */
-			snmp_sess_perror("snmpwalk", host->ss);
-			running = 0;
-			exitval = 1;
-		}
-		if (response)
-			snmp_free_pdu(response);
-	}
-	/*if (netsnmp_ds_get_boolean(NETSNMP_DS_APPLICATION_ID,
-		NETSNMP_DS_WALK_PRINT_STATISTICS)) {
-		printf("Variables found: %s\n", );
-	}*/
-	return  exitval;
+     struct snmp_pdu *req;
+     int status;
+     netsnmp_variable_list *retlist;
+     netsnmp_oid *poid;
+     //read_objid(".1.3.6.1.2.1.1.1.0", hostoid, &oidlen);
+    // snmp_add_null_var(req, hostoid, oidlen);
+     if(host->ss==NULL)return NULL;
+     if(node==NULL)
+     {
+       if(host==NULL)return 0;
+       poid=&(host->hoid);
+     }
+     else
+     {
+       poid=node;
+       for(;node;node=node->next_oid)      
+       if(node->name && node->oidlen<=0)
+       {
+	 node->oidlen=MAX_OID_LEN;//to use snmp_parse_oid() function,need to point out oid size
+	 if (snmp_parse_oid(node->name, node->node_oid, &node->oidlen)== NULL) {
+	  snmp_perror(node->name);
+	  snmp_perror("\n=========snmp_parse_oid error--------\n");
+	  exit(1);
+	  }
+       }     
+     }
+     req = snmp_pdu_create(SNMP_MSG_GET);
+     for(;poid!=NULL;poid=poid->next_oid)//add oid to req
+       {
+	  snmp_pdu_add_variable(req, poid->node_oid,poid->oidlen, ASN_NULL, NULL, 0);
+       }
+     
+     //status = snmp_synch_response(host->ss, req, &resp);
+     status = netsnmp_query_walk(req->variables,host->ss);
+     if (status == STAT_SUCCESS)//SUCCESS
+     {
+       retlist=req->variables;
+       req->variables=NULL;
+       snmp_free_pdu(req);
+     }
+     else 
+     {
+       snmp_free_pdu(req);//FAIL
+       retlist=NULL;
+     }
+     return retlist;
 }
-
  
 int asynch_response_cb(int operation, struct snmp_session *sp, int reqid,
                            netsnmp_pdu *pdu, void *magic)
 {
   return 0;
 }
-void free_hosts(netsnmp_host *host)
+void snmp_free_hosts(void *reval)
 {
   int i=0;
-  for(i=MAX_HOST_DEFAULT-1;i>=0;i--)
+  if(HostsNum>0)
+  for(i=HostsNum-1;i>=0;i--)
   {
     if(Hosts[i].name)free(Hosts[i].name);
     if(Hosts[i].community)free(Hosts[i].community);
     if(Hosts[i].ss)snmp_close(Hosts[i].ss);
   }
-  free(Hosts);
+  if(Hosts)free(Hosts);
   Hosts=NULL;
 }
-
-void snmp_process_s(union sigval v)
+ 
+void * snmp_thread_s(void* arg)
 {
   int i=0;
   netsnmp_pdu * resp;
   int status=0;
-  netsnmp_node node={"ip",0,0
-		   // , { 1, 3, 6, 1, 2, 1 ,1,1,0}
-		   // ,9
-		    };	      
-  for(;i<HostsNum;i++)
-  {
-   if(v.sival_int==10)printf("\n-----%s:%d:Hostnum:%d------\n",Hosts[i].name,i,HostsNum);
-   status= snmp_walk(&Hosts[i],&node);
- /**  if(resp)handle_response(&resp);
-   else
-     snmp_perror("snmp_process_s\n"); */
-   printf("snmpwalk return \n");
-   if(status)snmp_perror("snmp_process_s error\n");
-  }
-  printf("snmp_process_s end!!!!!!!!!!!\n\n");
-}
-    
-void * netsnmp_thread_s(void* arg)
-{
-   int count,run;
-   init_snmp("synchronizeapp");
-   init_hosts(arg,0);
-   
+  netsnmp_variable_list *result;
+  netsnmp_oid node={"sysDescr",0,0
+		  // , { 1, 3, 6, 1, 2, 1 ,1,1,0}
+		  // ,9
+		    };	   
    //create timer
-  timer_t tid;
-  struct sigevent se;
+  int tfd;
   struct itimerspec ts, ots; /*struct timespec {
 						time_t tv_sec;                //Seconds 
 						long   tv_nsec;               //Nanoseconds 
 					 };*/
-  memset(&se,0,sizeof(se));
-  se.sigev_notify = SIGEV_THREAD;   
+  //memset(&se,0,sizeof(se));
+  /*
+  se.sigev_notify =SIGEV_SIGNAL ;   //SIGEV_NONE:ignored remainder     
+				     //SIGEV_SIGNAL:   USE signal to blind signal with function
+				     // SIGEV_THREAD:se.sigev_signo is ignored
   se.sigev_notify_function =snmp_process_s;
+  se.sigev_signo=SIGRTMIN+1;
   se.sigev_value.sival_int = 10;
   if(timer_create(CLOCK_MONOTONIC, &se, &tid) < 0){
       perror("timer_creat");
       return NULL;
-  }
-  ts.it_value.tv_sec = 2;
+  }*/
+  tfd=timerfd_create(CLOCK_MONOTONIC,0);//0/o_NONBLOCK
+  if(tfd==-1)snmp_perror("timerfd_create error\n");
+  ts.it_value.tv_sec = 3;
   ts.it_value.tv_nsec = 0;
   ts.it_interval.tv_sec = MaxTimeGap;
   ts.it_interval.tv_nsec = 0; //纳妙级
-  if(timer_settime(tid, 0, &ts, &ots)   <   0){  //TIMER_ABSTIME
-    perror("timer_settime");
+  if(timerfd_settime(tfd,TFD_TIMER_ABSTIME, &ts, &ots)   <   0){  //TIMER_ABSTIME
+    perror("timerfd_settime");
     return NULL;
   }
    //main loop,wait for time out
-  for(;;)pause();
+   uint64_t tfd_exp=0;
+   int run=1;
+   ssize_t size;
+   for(;run;)
+   {
+     if(size=read(tfd,&tfd_exp,sizeof(uint64_t))>0)
+     {
+	for(i=0;i<HostsNum;i++)
+	{
+	  result= snmp_walk(&Hosts[i],&node);
+	  //result= snmp_get(&Hosts[i],&node);
+	  if(result)
+	  {
+	    handle_result(&Hosts[i],&result);
+	    if(result)snmp_free_varbind(result);
+	  }
+	  else  
+	   snmp_perror("snmp_walk/get error\n");
+	 }
+	// printf("size:%ld  tfd_exp:%ld,result:%d\n",size,tfd_exp,result); 
+     }
+     else
+     {
+        printf("read error,size:%ld  tfd_exp:%ld\n",size,tfd_exp);
+     }
+   }
+  printf("snmp_process_s end!!!!!!!!!!!\n\n");
 }
   
   
-void * netsnmp_thread_as(void* arg) //asynchronize
+void * snmp_thread_as(void* arg) //asynchronize
 {
    int count,run;
-   init_snmp("synchronizeapp");
-   init_hosts(arg,1);
+   snmp_init(arg,1);
+   
+   
 }
 
 

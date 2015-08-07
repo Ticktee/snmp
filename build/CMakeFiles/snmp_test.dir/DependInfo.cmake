@@ -5,7 +5,6 @@ SET(CMAKE_DEPENDS_LANGUAGES
 # The set of files for implicit dependencies of each language:
 SET(CMAKE_DEPENDS_CHECK_C
   "/root/projects/snmp_test/main.c" "/root/projects/snmp_test/build/CMakeFiles/snmp_test.dir/main.c.o"
-  "/root/projects/snmp_test/snmp.c" "/root/projects/snmp_test/build/CMakeFiles/snmp_test.dir/snmp.c.o"
   )
 SET(CMAKE_C_COMPILER_ID "GNU")
 

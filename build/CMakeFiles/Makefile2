@@ -59,7 +59,7 @@ CMAKE_BINARY_DIR = /root/projects/snmp_test/build
 CMakeFiles/snmp_test.dir/all: snmp/CMakeFiles/mysnmp.dir/all
 	$(MAKE) -f CMakeFiles/snmp_test.dir/build.make CMakeFiles/snmp_test.dir/depend
 	$(MAKE) -f CMakeFiles/snmp_test.dir/build.make CMakeFiles/snmp_test.dir/build
-	$(CMAKE_COMMAND) -E cmake_progress_report /root/projects/snmp_test/build/CMakeFiles  3 4
+	$(CMAKE_COMMAND) -E cmake_progress_report /root/projects/snmp_test/build/CMakeFiles  3
 	@echo "Built target snmp_test"
 .PHONY : CMakeFiles/snmp_test.dir/all
 
@@ -69,7 +69,7 @@ all: CMakeFiles/snmp_test.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/snmp_test.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /root/projects/snmp_test/build/CMakeFiles 4
+	$(CMAKE_COMMAND) -E cmake_progress_start /root/projects/snmp_test/build/CMakeFiles 3
 	$(MAKE) -f CMakeFiles/Makefile2 CMakeFiles/snmp_test.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /root/projects/snmp_test/build/CMakeFiles 0
 .PHONY : CMakeFiles/snmp_test.dir/rule

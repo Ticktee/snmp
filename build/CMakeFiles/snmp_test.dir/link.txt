@@ -1,1 +1,1 @@
-/usr/bin/cc  -g    CMakeFiles/snmp_test.dir/snmp.c.o CMakeFiles/snmp_test.dir/main.c.o  -o snmp_test -rdynamic snmp/libmysnmp.a -lpthread -lsnmp -lrt 
+/usr/bin/cc  -g    CMakeFiles/snmp_test.dir/main.c.o  -o snmp_test -rdynamic snmp/libmysnmp.a -lpthread -lsnmp -lrt 

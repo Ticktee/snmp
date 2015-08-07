@@ -1,5 +1,4 @@
 FILE(REMOVE_RECURSE
-  "CMakeFiles/snmp_test.dir/snmp.c.o"
   "CMakeFiles/snmp_test.dir/main.c.o"
   "snmp_test.pdb"
   "snmp_test"

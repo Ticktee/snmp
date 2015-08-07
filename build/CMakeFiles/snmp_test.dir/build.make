@@ -49,32 +49,9 @@ include CMakeFiles/snmp_test.dir/progress.make
 # Include the compile flags for this target's objects.
 include CMakeFiles/snmp_test.dir/flags.make
 
-CMakeFiles/snmp_test.dir/snmp.c.o: CMakeFiles/snmp_test.dir/flags.make
-CMakeFiles/snmp_test.dir/snmp.c.o: ../snmp.c
-	$(CMAKE_COMMAND) -E cmake_progress_report /root/projects/snmp_test/build/CMakeFiles $(CMAKE_PROGRESS_1)
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Building C object CMakeFiles/snmp_test.dir/snmp.c.o"
-	/usr/bin/cc  $(C_DEFINES) $(C_FLAGS) -o CMakeFiles/snmp_test.dir/snmp.c.o   -c /root/projects/snmp_test/snmp.c
-
-CMakeFiles/snmp_test.dir/snmp.c.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing C source to CMakeFiles/snmp_test.dir/snmp.c.i"
-	/usr/bin/cc  $(C_DEFINES) $(C_FLAGS) -E /root/projects/snmp_test/snmp.c > CMakeFiles/snmp_test.dir/snmp.c.i
-
-CMakeFiles/snmp_test.dir/snmp.c.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling C source to assembly CMakeFiles/snmp_test.dir/snmp.c.s"
-	/usr/bin/cc  $(C_DEFINES) $(C_FLAGS) -S /root/projects/snmp_test/snmp.c -o CMakeFiles/snmp_test.dir/snmp.c.s
-
-CMakeFiles/snmp_test.dir/snmp.c.o.requires:
-.PHONY : CMakeFiles/snmp_test.dir/snmp.c.o.requires
-
-CMakeFiles/snmp_test.dir/snmp.c.o.provides: CMakeFiles/snmp_test.dir/snmp.c.o.requires
-	$(MAKE) -f CMakeFiles/snmp_test.dir/build.make CMakeFiles/snmp_test.dir/snmp.c.o.provides.build
-.PHONY : CMakeFiles/snmp_test.dir/snmp.c.o.provides
-
-CMakeFiles/snmp_test.dir/snmp.c.o.provides.build: CMakeFiles/snmp_test.dir/snmp.c.o
-
 CMakeFiles/snmp_test.dir/main.c.o: CMakeFiles/snmp_test.dir/flags.make
 CMakeFiles/snmp_test.dir/main.c.o: ../main.c
-	$(CMAKE_COMMAND) -E cmake_progress_report /root/projects/snmp_test/build/CMakeFiles $(CMAKE_PROGRESS_2)
+	$(CMAKE_COMMAND) -E cmake_progress_report /root/projects/snmp_test/build/CMakeFiles $(CMAKE_PROGRESS_1)
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Building C object CMakeFiles/snmp_test.dir/main.c.o"
 	/usr/bin/cc  $(C_DEFINES) $(C_FLAGS) -o CMakeFiles/snmp_test.dir/main.c.o   -c /root/projects/snmp_test/main.c
 
@@ -97,13 +74,11 @@ CMakeFiles/snmp_test.dir/main.c.o.provides.build: CMakeFiles/snmp_test.dir/main.
 
 # Object files for target snmp_test
 snmp_test_OBJECTS = \
-"CMakeFiles/snmp_test.dir/snmp.c.o" \
 "CMakeFiles/snmp_test.dir/main.c.o"
 
 # External object files for target snmp_test
 snmp_test_EXTERNAL_OBJECTS =
 
-snmp_test: CMakeFiles/snmp_test.dir/snmp.c.o
 snmp_test: CMakeFiles/snmp_test.dir/main.c.o
 snmp_test: CMakeFiles/snmp_test.dir/build.make
 snmp_test: snmp/libmysnmp.a
@@ -115,7 +90,6 @@ snmp_test: CMakeFiles/snmp_test.dir/link.txt
 CMakeFiles/snmp_test.dir/build: snmp_test
 .PHONY : CMakeFiles/snmp_test.dir/build
 
-CMakeFiles/snmp_test.dir/requires: CMakeFiles/snmp_test.dir/snmp.c.o.requires
 CMakeFiles/snmp_test.dir/requires: CMakeFiles/snmp_test.dir/main.c.o.requires
 .PHONY : CMakeFiles/snmp_test.dir/requires
 

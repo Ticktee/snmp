@@ -8,18 +8,18 @@
 
 
 
-int main(int argc, char **argv) 
+int main(int argc, char *argv[]) 
 {
-
+    snmp_init(NULL,0);
     pthread_t thread;
     int flag=0;
    // fprintf(stderr, "Error: OID not increasing: ");
-    flag=pthread_create(&thread,NULL,netsnmp_thread_s,NULL);
+    flag=pthread_create(&thread,NULL,snmp_thread_s,NULL);
     if(flag){
       perror("creread_create error\n");
       return -1;
     }
-    pause();
+    pthread_join(thread,NULL);
     //getexample();
     return 0;
 }
